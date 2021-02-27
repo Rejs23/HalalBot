@@ -1,8 +1,13 @@
 // START VARIABLE DKK
-const { token, default_prefix } = require("./config.json");
+const { token, default_prefix, MAX_MESSAGE_COUNT, ALLOWED_ROLES_ID,  OWNER } = require("./config.json");
 const { config } = require("dotenv");
 const Discord = require("discord.js");
 const bot = new Discord.Client();
+const maxMessageCount = parseInt(MAX_MESSAGE_COUNT);
+let lastStickyMessage = "";
+let messageCount = 0;
+let stickyMessageChannel = "";
+let stickyMessageContent = "";
 require("./extendMessage");
 bot.commands = new Discord.Collection();
 bot.aliases = new Discord.Collection();
@@ -56,6 +61,23 @@ bot.on("message", async message => {
     message.channel.send(Menembed);
   }
 
+  if (message.content.indexOf(default_prefix) !== 0) {
+    if (stickyMessageContent !== "") {
+      if (message.channel.id === stickyMessageChannel) {
+        messageCount++;
+        if (messageCount === maxMessageCount) {
+          await lastStickyMessage.delete();
+          lastStickyMessage = await message.channel.send(stickyMessageContent);
+          messageCount = 0;
+        }
+      }
+    }
+
+    return;
+  }
+
+     
+  
   //==============================================================================
 
   // SETUP COMMAND
@@ -82,6 +104,32 @@ bot.on("message", async message => {
   if (!command) command = bot.commands.get(bot.aliases.get(cmd));
   if (command) command.run(bot, message, args);
 
+  if (cmd === "stick") {
+    if (
+      message.author.id === OWNER
+      || message.member.roles.cache.has(ALLOWED_ROLES_ID)
+    ) {
+      try {
+        stickyMessageChannel = message.channel.id;
+        stickyMessageContent = args.slice(0).join(" ");
+        lastStickyMessage = await message.channel.send(stickyMessageContent);
+        await message.delete();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  } else if (cmd === "unstick") {
+    if (
+      message.author.id === OWNER
+      || message.member.roles.cache.has(ALLOWED_ROLES_ID)
+    ) {
+      lastStickyMessage = "";
+      messageCount = 0;
+      stickyMessageChannel = "";
+      stickyMessageContent = "";
+      message.delete();
+    }
+  }
 });
 
 //==============================================================================
